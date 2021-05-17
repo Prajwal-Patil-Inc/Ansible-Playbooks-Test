@@ -1,0 +1,6 @@
+---
+- hosts: 
+  tasks:
+  - name: Ping test through ansible tower
+    ping:
+
