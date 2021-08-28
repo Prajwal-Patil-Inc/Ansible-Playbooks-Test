@@ -38,8 +38,8 @@
   register: out
   
 - set_fact:
-    device: "{{ out.stdout_lines[0] | trim }} 
-    fstype: "{{ out.stdout_lines[1] | trim }}
+    device: "{{ out.stdout_lines[0] | trim }}"
+    fstype: "{{ out.stdout_lines[1] | trim }}"
     
 - name: Getting the secrets
   sts_assume_role:
