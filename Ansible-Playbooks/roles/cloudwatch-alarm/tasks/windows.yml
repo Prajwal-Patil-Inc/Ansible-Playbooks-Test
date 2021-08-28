@@ -1,1 +1,92 @@
 ---
+- name: Check for existing service running 
+  win_service:
+    name: AmazonCloudWatchAgent
+  register: serv_stat
+  
+- block: 
+
+   - name: Download the cloudwatch agent file 
+     get_url: 
+        url: "{{ url }}"
+        dest: "{{ dest_to_download_win }}"
+     
+   - name: Install the cloudwatch agent
+     win_package: 
+       path: "{{ dest_to_download_win }}/amazon-cloudwatch-agent.msi"
+       state: present
+   
+   - name: Configure the agent
+     template: 
+        src: "{{ conf_win }}"
+        dest: "C:/ProgramData/Amazon/AmazonCloudWatchAgent/amazon-cloudwatch-agent.json"
+     notify: restart cwa win
+     
+   - name: Deleting the cloudwatch agent file
+     win_file: 
+       path: "{{ dest_to_download_win }}/amazon-cloudwatch-agent.msi"
+       state: absent
+       
+  when: not serv_stat.exists or serv_stat.state != 'running'
+   
+- name: Gathering metadata facts: 
+  win_shell: $instid = invoke-restmethod -uri http://169.254.169.254/latest/meta-data/instance-id; echo $instid; \
+             $reg = (invoke-restmethod -uri http://169.254.169.254/latest/dynamic/instance-identity/document).region; echo $reg; \
+             $accid = (invoke-restmethod -uri http://169.254.169.254/latest/dynamic/instance-identity/document).accountId; echo $accid; 
+  register: all_facts
+  
+- set_fact: 
+     instance_id: "{{ all_facts.stdout_lines[0] | trim }}"
+     region_placement: "{{ all_facts.stdout_lines[1] | trim }}"
+     account_id: "{{ all_facts.stdout_lines[2] | trim }}"
+  
+- name: Getting the secrets
+  sts_assume_role:
+     role_arn: "{{ arn }}"
+     role_session_name: "{{ session_name }}"
+     region: "{{ ansible_ec2_placement_region }}"
+  register: secrets
+  
+- set_fact: 
+    access_key: "{{ output.sts_creds['access_key'] }}"
+    secret_key: "{{ output.sts_creds['secret_key'] }}"
+    session_token: "{{ output.sts_creds['session_token'] }}"
+  
+- name: Logical Disk Alarm
+  ec2_metric_alarm: 
+    aws_access_key: "{{ access_key }}"
+    aws_secret_key: "{{ secret_key }}"
+    secret_token: "{{ session_token }}"
+    state: present
+    region: "{{ region_placement }}"
+    name: "{{ name }}"
+    description: "{{ descr }}"
+    metric: "LogicalDisk % Free Space"
+    namespace: "CWAgent"
+    statistics: "{{ stats }}"
+    comparison: "SomeComparision"
+    threshold: "SomeThreshold"
+    period: "SomePeriod"
+    evaluation_period: "SomeEVPeriod"
+    dimensions: {'InstanceId':"{{ ansible_ec2_instance_id }}", 'instance':'C', 'objectname':'LogicalDisk'}
+    alarm_actions: [action1, action2]
+ 
+- name: Memory Alarm
+  ec2_metric_alarm: 
+    aws_access_key: "{{ access_key }}"
+    aws_secret_key: "{{ secret_key }}"
+    secret_token: "{{ session_token }}"
+    state: present
+    region: "{{ placement_region }}"
+    name: "{{ name }}"
+    description: "{{ descr }}"
+    metric: "Memory % Committed Bytes In Use"
+    namespace: "CWAgent"
+    statistics: "{{ stats }}"
+    comparison: "SomeComparision"
+    threshold: "SomeThreshold"
+    period: "SomePeriod"
+    evaluation_period: "SomeEVPeriod"
+    dimensions: {'InstanceId':"{{ ansible_ec2_instance_id }}", 'objectname':'Memory'}
+    alarm_actions: [action1, action2]
+    
