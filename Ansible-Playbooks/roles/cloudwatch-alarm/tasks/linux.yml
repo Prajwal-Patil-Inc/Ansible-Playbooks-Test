@@ -37,6 +37,10 @@
          fst=`df khT | awk -F' ' '{ print $1 } | sed 1,5d | sed -n 1p`; echo $fst
   register: out
   
+- set_fact:
+    device: "{{ out.stdout_lines[0] | trim }} 
+    fstype: "{{ out.stdout_lines[1] | trim }}
+    
 - name: Getting the secrets
   sts_assume_role:
      role_arn: "{{ arn }}"
@@ -51,3 +55,76 @@
   
 - name: CPU Alarm
   ec2_metric_alarm: 
+    aws_access_key: "{{ access_key }}"
+    aws_secret_key: "{{ secret_key }}"
+    secret_token: "{{ session_token }}"
+    state: present
+    region: "{{ ansible_ec2_placement_region }}"
+    name: "{{ name }}"
+    description: "{{ descr }}"
+    metric: "CPUUtilization"
+    namespace: "AWS/EC2"
+    statistics: "{{ stats }}"
+    comparison: "SomeComparision"
+    threshold: "SomeThreshold"
+    period: "SomePeriod"
+    evaluation_period: "SomeEVPeriod"
+    dimensions: {'InstanceId':"{{ ansible_ec2_instance_id }}"}
+    alarm_actions: [action1, action2]
+ 
+- name: Status Alarm
+  ec2_metric_alarm: 
+    aws_access_key: "{{ access_key }}"
+    aws_secret_key: "{{ secret_key }}"
+    secret_token: "{{ session_token }}"
+    state: present
+    region: "{{ ansible_ec2_placement_region }}"
+    name: "{{ name }}"
+    description: "{{ descr }}"
+    metric: "StatusCheckFailed"
+    namespace: "AWS/EC2"
+    statistics: "{{ stats }}"
+    comparison: "SomeComparision"
+    threshold: "SomeThreshold"
+    period: "SomePeriod"
+    evaluation_period: "SomeEVPeriod"
+    dimensions: {'InstanceId':"{{ ansible_ec2_instance_id }}"}
+    alarm_actions: [action1, action2]
+    
+- name: Disk usage
+  ec2_metric_alarm: 
+    aws_access_key: "{{ access_key }}"
+    aws_secret_key: "{{ secret_key }}"
+    secret_token: "{{ session_token }}"
+    state: present
+    region: "{{ ansible_ec2_placement_region }}"
+    name: "{{ name }}"
+    description: "{{ descr }}"
+    metric: "disk_used_percent"
+    namespace: "CWAgent"
+    statistics: "{{ stats }}"
+    comparison: "SomeComparision"
+    threshold: "SomeThreshold"
+    period: "SomePeriod"
+    evaluation_period: "SomeEVPeriod"
+    dimensions: {'InstanceId':"{{ ansible_ec2_instance_id }}", 'device':"{{ device }}", 'fstype':"{{ fstype }}", 'path':'/'}
+    alarm_actions: [action1, action2]
+    
+- name: Memory Alarm
+  ec2_metric_alarm: 
+    aws_access_key: "{{ access_key }}"
+    aws_secret_key: "{{ secret_key }}"
+    secret_token: "{{ session_token }}"
+    state: present
+    region: "{{ ansible_ec2_placement_region }}"
+    name: "{{ name }}"
+    description: "{{ descr }}"
+    metric: "mem_used_percent"
+    namespace: "CWAgent"
+    statistics: "{{ stats }}"
+    comparison: "SomeComparision"
+    threshold: "SomeThreshold"
+    period: "SomePeriod"
+    evaluation_period: "SomeEVPeriod"
+    dimensions: {'InstanceId':"{{ ansible_ec2_instance_id }}"}
+    alarm_actions: [action1, action2]
