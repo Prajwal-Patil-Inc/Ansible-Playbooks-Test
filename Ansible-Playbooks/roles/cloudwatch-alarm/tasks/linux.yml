@@ -1,1 +1,53 @@
 ---
+- name: Check for existing service running 
+  service:
+    name: amazon-cloudwatch-agent
+  register: serv_stat
+  
+- block: 
+
+   - name: Download the cloudwatch agent file 
+     get_url: 
+        url: "{{ url }}"
+        dest: /tmp/
+     
+   - name: Install the cloudwatch agent
+     yum: 
+       name: /tmp/amazon-cloudwatch-agent.rpm
+       state: present
+   
+   - name: Configure the agent
+     template: f
+        src: "{{ conf }}"
+        dest: "/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
+        mode: 0644
+     notify: restart cwa
+     
+   - name: Deleting the cloudwatch agent file
+     file: 
+       path: /tmp/amazon-cloudwatch-agent.rpm
+       state: absent
+       
+  when: ansible_os_family == "RedHat" and serv_stat.status.SubState != 'running'
+   
+- ec2_metadata_facts:
+
+- name: Gathering some more facts 
+  shell: device=`df khT | awk -F' ' '{ print $1 } | sed 1,5d | sed -n 1p | cut -d'/' -f 3`; echo $device
+         fst=`df khT | awk -F' ' '{ print $1 } | sed 1,5d | sed -n 1p`; echo $fst
+  register: out
+  
+- name: Getting the secrets
+  sts_assume_role:
+     role_arn: "{{ arn }}"
+     role_session_name: "{{ session_name }}"
+     region: "{{ ansible_ec2_placement_region }}"
+  register: secrets
+  
+- set_fact: 
+    access_key: "{{ output.sts_creds['access_key'] }}"
+    secret_key: "{{ output.sts_creds['secret_key'] }}"
+    session_token: "{{ output.sts_creds['session_token'] }}"
+  
+- name: CPU Alarm
+  ec2_metric_alarm: 
